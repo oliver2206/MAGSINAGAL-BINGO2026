@@ -4,6 +4,8 @@ const GRAVITY = 0.4;
 const FRICTION = 0.82;
 const BOUNCE = 0.72;
 const BALL_RADIUS = 28;
+const MIN_SPEED = 0.5; // Minimum speed threshold
+const RESTING_PENALTY = 0.5; // Push force when a ball seems stuck
 
 const BALLS_INIT = [
   { x: 160, y: 120, vx: 3.2, vy: 1.5, color: '#ff4d6d', trail: [] },
@@ -67,6 +69,27 @@ export default function App() {
             ball.vx *= FRICTION;
           }
           if (ball.y - BALL_RADIUS < 0) { ball.y = BALL_RADIUS; ball.vy *= -BOUNCE; }
+
+          // --- NEW: Anti-stopping mechanism ---
+          const speed = Math.abs(ball.vx) + Math.abs(ball.vy);
+          
+          // If ball is moving too slow, give it a tiny random push
+          if (speed < MIN_SPEED) {
+            const angle = Math.random() * Math.PI * 2;
+            ball.vx += Math.cos(angle) * RESTING_PENALTY;
+            ball.vy += Math.sin(angle) * RESTING_PENALTY;
+          }
+          
+          // Extra: If ball is on the ground and barely moving, give it a vertical nudge
+          if (ball.y + BALL_RADIUS >= H - 1 && Math.abs(ball.vy) < 1.2) {
+            ball.vy -= RESTING_PENALTY * 1.2;
+          }
+
+          // Optional: Cap maximum velocity to prevent wild behavior
+          const MAX_SPEED = 15;
+          if (Math.abs(ball.vx) > MAX_SPEED) ball.vx = Math.sign(ball.vx) * MAX_SPEED;
+          if (Math.abs(ball.vy) > MAX_SPEED) ball.vy = Math.sign(ball.vy) * MAX_SPEED;
+          // ----------------------------------
 
           // Trail
           ball.trail.push({ x: ball.x, y: ball.y });
@@ -133,7 +156,7 @@ export default function App() {
 
   return (
     <div style={{
-      width: '1000vw', height: '100vh', background: '#0a0a12',
+      width: '100vw', height: '100vh', background: '#0a0a12',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       fontFamily: "'Courier New', monospace",
       overflow: 'hidden',
