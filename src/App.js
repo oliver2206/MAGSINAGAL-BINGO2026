@@ -126,11 +126,7 @@ export default function App() {
       <div style={centerUI}>
         <h1 style={titleStyle}>BINGO FORTUNE</h1>
 
-        <button style={btn}>GENERATE</button>
-        <button style={btn}>PATTERN</button>
-        <button style={btn}>CHECKER</button>
-        <button style={btn}>ANALYZER</button>
-        <button style={btn}>GALLERY</button>
+       
       </div>
     </div>
   );
