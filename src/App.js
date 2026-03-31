@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
-// --- Bouncing Ball React Component ---
-// Inspired by the retro BINGO FORTUNE aesthetic: bold numbers, neon accents, checker patterns.
-
 const BouncingBall: React.FC = () => {
   // Canvas ref
   const canvasRef = useRef<HTMLCanvasElement>(null);
