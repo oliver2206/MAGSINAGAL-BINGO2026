@@ -133,7 +133,7 @@ export default function App() {
 
   return (
     <div style={{
-      width: '100vw', height: '100vh', background: '#0a0a12',
+      width: '1000vw', height: '100vh', background: '#0a0a12',
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       fontFamily: "'Courier New', monospace",
       overflow: 'hidden',
