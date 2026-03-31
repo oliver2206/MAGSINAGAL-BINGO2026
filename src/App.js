@@ -1,518 +1,371 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const BouncingBall: React.FC = () => {
-  // Canvas ref
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationRef = useRef<number | null>(null);
-  
-  // Ball physics state
-  const [position, setPosition] = useState({ x: 300, y: 200 });
-  const [velocity, setVelocity] = useState({ vx: 3.2, vy: -4.7 });
-  const [gravity] = useState(0.35);
-  const [bounceDamping] = useState(0.92);
-  const [groundFriction] = useState(0.995);
-  
-  // Interactive controls
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
-  const [tempVelocity, setTempVelocity] = useState({ vx: 0, vy: 0 });
-  const [showTrail, setShowTrail] = useState(true);
-  const [ballColor, setBallColor] = useState('#ffcc44');
-  const [effectIntensity, setEffectIntensity] = useState(0.8);
-  
-  // Dimensions
-  const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
-  
-  // Random fortune phrases (bingo style)
-  const fortunes = [
-    "⭐ LUCKY STRIKE ⭐", "🎲 DOUBLE BOUNCE 🎲", "💎 JACKPOT HIT 💎", 
-    "🍀 FOUR LEAF CLOVER 🍀", "🔔 BINGO BONUS 🔔", "✨ GOLDEN DICE ✨",
-    "🎯 CENTER SPOT 🎯", "🌈 RAINBOW BOUNCE 🌈", "💥 POWER SPIN 💥"
+const BouncingBingoBalls = () => {
+  const [balls, setBalls] = useState([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const animationRef = useRef(null);
+  const containerRef = useRef(null);
+
+  // Ball colors commonly used in bingo
+  const colors = [
+    '#FF6B6B', // Red
+    '#4ECDC4', // Teal
+    '#FFE66D', // Yellow
+    '#FF9F1C', // Orange
+    '#9B59B6', // Purple
+    '#3498DB', // Blue
+    '#2ECC71', // Green
+    '#E74C3C', // Crimson
+    '#F39C12', // Gold
+    '#1ABC9C', // Turquoise
   ];
-  const [currentFortune, setCurrentFortune] = useState("⚡ BOUNCE READY ⚡");
-  const [showFortune, setShowFortune] = useState(false);
-  
-  // Checker patterns & background style
-  const [checkerStyle, setCheckerStyle] = useState<'dark' | 'neon' | 'classic'>('neon');
-  
-  // Resize observer
-  useEffect(() => {
-    const updateSize = () => {
-      if (canvasRef.current) {
-        const container = canvasRef.current.parentElement;
-        if (container) {
-          const maxWidth = Math.min(1000, window.innerWidth - 40);
-          const width = maxWidth;
-          const height = Math.min(550, window.innerHeight * 0.7);
-          setDimensions({ width, height });
-          canvasRef.current.width = width;
-          canvasRef.current.height = height;
+
+  // Generate random ball data
+  const generateBall = (id, containerWidth, containerHeight) => {
+    const size = 50 + Math.random() * 20; // 50-70px
+    const x = Math.random() * (containerWidth - size);
+    const y = Math.random() * (containerHeight - size);
+    const vx = (Math.random() - 0.5) * 8;
+    const vy = (Math.random() - 0.5) * 8;
+    const number = Math.floor(Math.random() * 75) + 1; // 1-75 for American bingo
+    const letter = getBingoLetter(number);
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    return {
+      id,
+      x,
+      y,
+      vx,
+      vy,
+      size,
+      number,
+      letter,
+      color,
+      mass: size / 50, // Mass proportional to size for realistic physics
+    };
+  };
+
+  const getBingoLetter = (number) => {
+    if (number <= 15) return 'B';
+    if (number <= 30) return 'I';
+    if (number <= 45) return 'N';
+    if (number <= 60) return 'G';
+    return 'O';
+  };
+
+  // Initialize balls
+  const initializeBalls = () => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    const newBalls = [];
+    const ballCount = 15; // Number of bouncing balls
+    
+    for (let i = 0; i < ballCount; i++) {
+      newBalls.push(generateBall(i, rect.width, rect.height));
+    }
+    setBalls(newBalls);
+  };
+
+  // Update ball positions with collision detection
+  const updatePositions = () => {
+    if (!containerRef.current || !isRunning) return;
+    
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    
+    setBalls(prevBalls => {
+      let newBalls = [...prevBalls];
+      
+      // Update positions and handle wall collisions
+      for (let i = 0; i < newBalls.length; i++) {
+        let ball = { ...newBalls[i] };
+        
+        // Update position
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+        
+        // Wall collision (left/right)
+        if (ball.x <= 0) {
+          ball.x = 0;
+          ball.vx = Math.abs(ball.vx);
+        } else if (ball.x + ball.size >= width) {
+          ball.x = width - ball.size;
+          ball.vx = -Math.abs(ball.vx);
+        }
+        
+        // Wall collision (top/bottom)
+        if (ball.y <= 0) {
+          ball.y = 0;
+          ball.vy = Math.abs(ball.vy);
+        } else if (ball.y + ball.size >= height) {
+          ball.y = height - ball.size;
+          ball.vy = -Math.abs(ball.vy);
+        }
+        
+        // Add slight damping to prevent infinite bouncing
+        ball.vx *= 0.998;
+        ball.vy *= 0.998;
+        
+        newBalls[i] = ball;
+      }
+      
+      // Ball-to-ball collision detection
+      for (let i = 0; i < newBalls.length; i++) {
+        for (let j = i + 1; j < newBalls.length; j++) {
+          const ball1 = newBalls[i];
+          const ball2 = newBalls[j];
+          
+          const dx = (ball1.x + ball1.size / 2) - (ball2.x + ball2.size / 2);
+          const dy = (ball1.y + ball1.size / 2) - (ball2.y + ball2.size / 2);
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const minDistance = (ball1.size + ball2.size) / 2;
+          
+          if (distance < minDistance) {
+            // Collision detected - resolve using physics
+            const angle = Math.atan2(dy, dx);
+            const sin = Math.sin(angle);
+            const cos = Math.cos(angle);
+            
+            // Rotate velocities
+            const v1 = { x: ball1.vx, y: ball1.vy };
+            const v2 = { x: ball2.vx, y: ball2.vy };
+            
+            const v1r = {
+              x: v1.x * cos + v1.y * sin,
+              y: v1.y * cos - v1.x * sin
+            };
+            const v2r = {
+              x: v2.x * cos + v2.y * sin,
+              y: v2.y * cos - v2.x * sin
+            };
+            
+            // Collision response (elastic)
+            const m1 = ball1.mass;
+            const m2 = ball2.mass;
+            const v1rf = {
+              x: (v1r.x * (m1 - m2) + 2 * m2 * v2r.x) / (m1 + m2),
+              y: v1r.y
+            };
+            const v2rf = {
+              x: (v2r.x * (m2 - m1) + 2 * m1 * v1r.x) / (m1 + m2),
+              y: v2r.y
+            };
+            
+            // Rotate back
+            ball1.vx = v1rf.x * cos - v1rf.y * sin;
+            ball1.vy = v1rf.y * cos + v1rf.x * sin;
+            ball2.vx = v2rf.x * cos - v2rf.y * sin;
+            ball2.vy = v2rf.y * cos + v2rf.x * sin;
+            
+            // Separate balls to prevent sticking
+            const overlap = minDistance - distance;
+            const angleRad = Math.atan2(dy, dx);
+            const moveX = Math.cos(angleRad) * overlap / 2;
+            const moveY = Math.sin(angleRad) * overlap / 2;
+            
+            ball1.x -= moveX;
+            ball1.y -= moveY;
+            ball2.x += moveX;
+            ball2.y += moveY;
+            
+            // Keep balls within bounds after separation
+            ball1.x = Math.max(0, Math.min(ball1.x, width - ball1.size));
+            ball1.y = Math.max(0, Math.min(ball1.y, height - ball1.size));
+            ball2.x = Math.max(0, Math.min(ball2.x, width - ball2.size));
+            ball2.y = Math.max(0, Math.min(ball2.y, height - ball2.size));
+          }
         }
       }
+      
+      return newBalls;
+    });
+  };
+  
+  // Animation loop
+  useEffect(() => {
+    if (isRunning) {
+      const animate = () => {
+        updatePositions();
+        animationRef.current = requestAnimationFrame(animate);
+      };
+      animationRef.current = requestAnimationFrame(animate);
+    } else if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
     };
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+  }, [isRunning]);
+  
+  // Initialize balls when component mounts or container resizes
+  useEffect(() => {
+    initializeBalls();
+    
+    const handleResize = () => {
+      initializeBalls();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
   
-  // Reset ball to center with random velocity (but safe)
-  const resetBall = useCallback(() => {
-    const safeW = dimensions.width;
-    const safeH = dimensions.height;
-    setPosition({ x: safeW / 2, y: safeH / 3 });
-    setVelocity({ 
-      vx: (Math.random() * 5 + 2) * (Math.random() > 0.5 ? 1 : -1), 
-      vy: -5 - Math.random() * 4 
-    });
-    setCurrentFortune("🔄 RESET BOUNCE 🔄");
-    setShowFortune(true);
-    setTimeout(() => setShowFortune(false), 800);
-  }, [dimensions]);
-  
-  // Apply impulse (throw from drag)
-  const applyImpulse = useCallback((fromX: number, fromY: number, toX: number, toY: number) => {
-    const dx = (fromX - toX) * 0.28;
-    const dy = (fromY - toY) * 0.28;
-    const newVx = Math.min(Math.max(dx, -12), 12);
-    const newVy = Math.min(Math.max(dy, -12), 8);
-    setVelocity({ vx: newVx, vy: newVy });
-    setPosition({ x: fromX, y: fromY });
-    
-    // show random fortune on flick
-    const randomFort = fortunes[Math.floor(Math.random() * fortunes.length)];
-    setCurrentFortune(randomFort);
-    setShowFortune(true);
-    setTimeout(() => setShowFortune(false), 600);
-  }, [fortunes]);
-  
-  // Mouse / Touch interactions
-  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const canvasX = (e.clientX - rect.left) * (dimensions.width / rect.width);
-    const canvasY = (e.clientY - rect.top) * (dimensions.height / rect.height);
-    setIsDragging(true);
-    setDragPos({ x: canvasX, y: canvasY });
-    setTempVelocity({ vx: velocity.vx, vy: velocity.vy });
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+  // Add a new ball
+  const addBall = () => {
+    if (!containerRef.current || !isRunning) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const newBall = generateBall(Date.now(), rect.width, rect.height);
+    setBalls(prev => [...prev, newBall]);
   };
   
-  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const canvasX = (e.clientX - rect.left) * (dimensions.width / rect.width);
-    const canvasY = (e.clientY - rect.top) * (dimensions.height / rect.height);
-    // Show rubberband effect line
-    setDragPos({ x: canvasX, y: canvasY });
+  // Remove a ball
+  const removeBall = () => {
+    if (balls.length > 1) {
+      setBalls(prev => prev.slice(0, -1));
+    }
   };
   
-  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (rect) {
-      const canvasX = (e.clientX - rect.left) * (dimensions.width / rect.width);
-      const canvasY = (e.clientY - rect.top) * (dimensions.height / rect.height);
-      const dx = dragPos.x - canvasX;
-      const dy = dragPos.y - canvasY;
-      if (Math.hypot(dx, dy) > 5) {
-        applyImpulse(dragPos.x, dragPos.y, canvasX, canvasY);
-      } else {
-        // small nudge
-        setVelocity({ vx: velocity.vx + (Math.random() - 0.5) * 2, vy: velocity.vy - 2 });
-      }
-    }
-    setIsDragging(false);
-    startAnimationLoop();
+  // Reset all balls
+  const resetBalls = () => {
+    initializeBalls();
   };
-  
-  // Animation loop: update physics and render
-  const startAnimationLoop = useCallback(() => {
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    
-    let lastTimestamp = 0;
-    let posX = position.x;
-    let posY = position.y;
-    let velX = velocity.vx;
-    let velY = velocity.vy;
-    const { width, height } = dimensions;
-    const radius = Math.min(26, width * 0.065);
-    
-    const updatePhysics = () => {
-      // Euler integration
-      velY += gravity;
-      posX += velX;
-      posY += velY;
-      
-      // Ground collision (floor)
-      if (posY + radius >= height) {
-        posY = height - radius;
-        velY = -velY * bounceDamping;
-        velX = velX * groundFriction;
-        if (Math.abs(velY) < 0.8 && velY > 0) velY = 0;
-        // Trigger fortune bounce effect (with throttle via random)
-        if (Math.abs(velY) > 2.5) {
-          const bounceFort = fortunes[Math.floor(Math.random() * fortunes.length)];
-          setCurrentFortune(bounceFort);
-          setShowFortune(true);
-          setTimeout(() => setShowFortune(false), 400);
-        }
-      }
-      // Ceiling collision
-      if (posY - radius <= 0) {
-        posY = radius;
-        velY = -velY * 0.92;
-        if (Math.abs(velY) < 0.5) velY = 0;
-      }
-      // Left & right walls
-      if (posX + radius >= width) {
-        posX = width - radius;
-        velX = -velX * 0.98;
-      }
-      if (posX - radius <= 0) {
-        posX = radius;
-        velX = -velX * 0.98;
-      }
-      
-      // Apply small air resistance
-      velX *= 0.999;
-      
-      setPosition({ x: posX, y: posY });
-      setVelocity({ vx: velX, vy: velY });
-    };
-    
-    const renderFrame = () => {
-      updatePhysics();
-      drawCanvas(posX, posY, radius);
-      animationRef.current = requestAnimationFrame(renderFrame);
-    };
-    
-    renderFrame();
-  }, [dimensions, gravity, bounceDamping, groundFriction, fortunes]);
-  
-  // Drawing routine (includes checker patterns, glow, trail effect)
-  const drawCanvas = (ballX: number, ballY: number, radius: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const w = dimensions.width;
-    const h = dimensions.height;
-    
-    // ---- BACKGROUND: Checker pattern style ----
-    const cellSize = 32;
-    if (checkerStyle === 'neon') {
-      ctx.fillStyle = '#0a121f';
-      ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < w + cellSize; i += cellSize) {
-        for (let j = 0; j < h + cellSize; j += cellSize) {
-          if ((i + j) % (cellSize * 2) === 0) {
-            ctx.fillStyle = '#1e2a3a';
-            ctx.fillRect(i, j, cellSize, cellSize);
-          } else {
-            ctx.fillStyle = '#0d1b2a';
-            ctx.fillRect(i, j, cellSize, cellSize);
-          }
-        }
-      }
-      // neon grid lines
-      ctx.strokeStyle = '#2affb6';
-      ctx.lineWidth = 0.6;
-      for (let i = 0; i < w + cellSize; i += cellSize) {
-        ctx.beginPath();
-        ctx.moveTo(i, 0);
-        ctx.lineTo(i, h);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, i);
-        ctx.lineTo(w, i);
-        ctx.stroke();
-      }
-    } else if (checkerStyle === 'classic') {
-      ctx.fillStyle = '#1e3b2f';
-      ctx.fillRect(0, 0, w, h);
-      for (let i = 0; i < w + 40; i += 40) {
-        for (let j = 0; j < h + 40; j += 40) {
-          if ((i + j) % 80 === 0) {
-            ctx.fillStyle = '#2b5a42';
-            ctx.fillRect(i, j, 40, 40);
-          } else {
-            ctx.fillStyle = '#1e4d38';
-            ctx.fillRect(i, j, 40, 40);
-          }
-        }
-      }
-    } else {
-      // dark mode with subtle bingo numbers
-      ctx.fillStyle = '#010d0f';
-      ctx.fillRect(0, 0, w, h);
-      ctx.font = `bold ${Math.floor(cellSize * 0.7)}px "Courier New", monospace`;
-      ctx.fillStyle = '#234f3c';
-      for (let i = 20; i < w; i += 45) {
-        for (let j = 20; j < h; j += 45) {
-          const num = (Math.floor(i / 23) + Math.floor(j / 17)) % 10;
-          ctx.fillText(`${num}`, i, j);
-        }
-      }
-    }
-    
-    // ---- "BINGO FORTUNE" corner text ----
-    ctx.font = `bold ${Math.max(18, Math.floor(w * 0.045))}px "Orbitron", "Segoe UI", monospace`;
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#f5e56b';
-    ctx.shadowColor = '#ffaa33';
-    ctx.fillText("🎲 BINGO FORTUNE 🎲", 18, 42);
-    ctx.font = `12px monospace`;
-    ctx.fillStyle = '#c0e0d0';
-    ctx.fillText("BOUNCE · PREDICT · WIN", 20, 72);
-    
-    // ---- draw decorative side numbers (inspired by your image) ----
-    ctx.font = `bold 18px "Courier New"`;
-    ctx.fillStyle = '#ffdd88';
-    const numbers = [6, 0, 18, 27, 71, 34, 41, 62, 54, 20, 69, 57, 30, 65, 12, 70, 46, 24, 19, 35, 4];
-    for (let idx = 0; idx < numbers.length && idx < 25; idx++) {
-      const x = w - 48 + (idx % 3) * 16;
-      const y = 50 + Math.floor(idx / 3) * 24;
-      if (x < w - 10 && y < h - 20) {
-        ctx.fillStyle = '#b9f6ca';
-        ctx.fillText(`${numbers[idx]}`, x, y);
-      }
-    }
-    
-    // ---- TRAIL EFFECT (ghost shadows) ----
-    if (showTrail) {
-      ctx.save();
-      ctx.globalAlpha = 0.25 * effectIntensity;
-      for (let i = 1; i <= 5; i++) {
-        const trailX = ballX - velocity.vx * i * 1.8;
-        const trailY = ballY - velocity.vy * i * 1.8;
-        ctx.beginPath();
-        ctx.arc(trailX, trailY, radius * (1 - i * 0.12), 0, Math.PI * 2);
-        ctx.fillStyle = ballColor;
-        ctx.shadowBlur = 12;
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-    
-    // ---- MAIN BALL with GLOW ----
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = `rgba(255, 200, 80, 0.8)`;
-    const grad = ctx.createRadialGradient(ballX - 5, ballY - 5, 5, ballX, ballY, radius);
-    grad.addColorStop(0, '#fff5b0');
-    grad.addColorStop(0.5, ballColor);
-    grad.addColorStop(1, '#c97800');
-    ctx.beginPath();
-    ctx.arc(ballX, ballY, radius, 0, Math.PI * 2);
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.strokeStyle = '#ffea9e';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    // specular highlight
-    ctx.beginPath();
-    ctx.arc(ballX - 4, ballY - 5, radius * 0.25, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 245, 0.7)';
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    
-    // draw inner bingo star icon
-    ctx.font = `${Math.floor(radius * 0.8)}px "Segoe UI Emoji"`;
-    ctx.fillStyle = '#1e2a1f';
-    ctx.shadowBlur = 2;
-    ctx.fillText("🎯", ballX - 10, ballY + 8);
-    
-    // ---- DRAG LINE (elastic effect) ----
-    if (isDragging && dragPos) {
-      ctx.beginPath();
-      ctx.moveTo(ballX, ballY);
-      ctx.lineTo(dragPos.x, dragPos.y);
-      ctx.strokeStyle = '#ffb347';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([6, 8]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.arc(dragPos.x, dragPos.y, 12, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-      ctx.fill();
-      ctx.fillStyle = '#ffd966';
-      ctx.font = 'bold 16px monospace';
-      ctx.fillText("⚡", dragPos.x - 7, dragPos.y + 6);
-    }
-    
-    // FORTUNE POPUP (floating text)
-    if (showFortune) {
-      ctx.font = `bold ${Math.floor(w * 0.045)}px "Orbitron", monospace`;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = '#ffaa33';
-      ctx.fillStyle = '#ffec99';
-      ctx.textAlign = 'center';
-      ctx.fillText(currentFortune, w / 2, h * 0.18);
-      ctx.textAlign = 'left';
-      ctx.shadowBlur = 0;
-    }
-    
-    // small checker panels (like UI buttons)
-    ctx.font = 'bold 14px monospace';
-    ctx.fillStyle = '#d4f1f9';
-    ctx.fillText(`⚡ SPEED: ${Math.abs(velocity.vx + velocity.vy).toFixed(1)}`, w - 130, h - 18);
-    ctx.fillStyle = '#ffc857';
-    ctx.fillText(`🎲 BOUNCE FORTUNE`, w - 145, h - 38);
-  };
-  
-  // Initialize animation after dimensions are ready
-  useEffect(() => {
-    if (dimensions.width && dimensions.height) {
-      setPosition({ x: dimensions.width / 2, y: dimensions.height - 60 });
-      setVelocity({ vx: 3.8, vy: -6.2 });
-      startAnimationLoop();
-    }
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
-  }, [dimensions, startAnimationLoop]);
-  
-  // Sync canvas size on dimension change and redraw
-  useEffect(() => {
-    if (canvasRef.current && dimensions.width) {
-      canvasRef.current.width = dimensions.width;
-      canvasRef.current.height = dimensions.height;
-    }
-  }, [dimensions]);
   
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'radial-gradient(circle at 30% 10%, #061010, #020808)',
-      fontFamily: '"Courier New", "Orbitron", monospace',
-      padding: '20px',
-    }}>
-      <div style={{
-        background: 'rgba(0, 0, 0, 0.6)',
-        borderRadius: '48px',
-        padding: '20px 20px 24px 20px',
-        boxShadow: '0 20px 35px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,200,0.2)',
-        border: '1px solid #ffd966'
-      }}>
-        <canvas
-          ref={canvasRef}
-          width={dimensions.width}
-          height={dimensions.height}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          style={{
-            display: 'block',
-            margin: '0 auto',
-            borderRadius: '28px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.5), 0 0 0 2px #f3c26b',
-            cursor: isDragging ? 'grabbing' : 'grab',
-            width: '100%',
-            height: 'auto',
-            background: '#00000022'
-          }}
-        />
-        
-        {/* Control Panel inspired by BINGO CHECKER buttons */}
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: '12px',
-          marginTop: '22px',
-          padding: '10px 12px',
-          background: '#0c1f1cd9',
-          borderRadius: '60px',
-          backdropFilter: 'blur(4px)'
-        }}>
-          <button onClick={resetBall} style={buttonStyle('#e6b422')}>🎲 RESET BALL</button>
-          <button onClick={() => {
-            setVelocity({ vx: (Math.random() * 8 - 4), vy: -7 - Math.random() * 4 });
-            setCurrentFortune("✨ WILD SPIN ✨");
-            setShowFortune(true);
-            setTimeout(() => setShowFortune(false), 600);
-          }} style={buttonStyle('#44aa88')}>🌀 RANDOM BOOST</button>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#1a2f2a', borderRadius: '40px', padding: '0 12px' }}>
-            <span style={{ color: '#ffdd99', fontSize: '14px' }}>🎨 BALL</span>
-            <input 
-              type="color" value={ballColor} onChange={(e) => setBallColor(e.target.value)}
-              style={{ width: '38px', height: '38px', border: 'none', background: 'transparent', cursor: 'pointer' }}
-            />
-          </div>
-          
-          <button onClick={() => setShowTrail(!showTrail)} style={buttonStyle(showTrail ? '#f5b042' : '#4f6f62')}>
-            {showTrail ? '✨ TRAIL ON' : '🌙 TRAIL OFF'}
-          </button>
-          
-          <select 
-            value={checkerStyle} onChange={(e) => setCheckerStyle(e.target.value as any)}
-            style={{ ...buttonStyle('#2c5a4a'), background: '#2c5a4a', fontFamily: 'monospace', fontWeight: 'bold' }}
+    <div style={styles.container}>
+      <div style={styles.controls}>
+        <button onClick={() => setIsRunning(!isRunning)} style={styles.button}>
+          {isRunning ? 'Pause' : 'Start'}
+        </button>
+        <button onClick={addBall} disabled={!isRunning} style={styles.button}>
+          Add Ball
+        </button>
+        <button onClick={removeBall} disabled={!isRunning || balls.length <= 1} style={styles.button}>
+          Remove Ball
+        </button>
+        <button onClick={resetBalls} disabled={!isRunning} style={styles.button}>
+          Reset
+        </button>
+        <div style={styles.ballCount}>Balls: {balls.length}</div>
+      </div>
+      
+      <div 
+        ref={containerRef}
+        style={styles.bingoArea}
+      >
+        {balls.map(ball => (
+          <div
+            key={ball.id}
+            style={{
+              ...styles.ball,
+              width: ball.size,
+              height: ball.size,
+              left: ball.x,
+              top: ball.y,
+              backgroundColor: ball.color,
+              boxShadow: `0 4px 8px rgba(0,0,0,0.2), inset 0 -2px 0 rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.3)`,
+            }}
           >
-            <option value="neon">🌀 NEON CHECKER</option>
-            <option value="classic">🍀 CLASSIC BINGO</option>
-            <option value="dark">🔮 DARK NUMBERS</option>
-          </select>
-          
-          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <span style={{ fontSize: '12px', color: '#ddd' }}>💥 GLOW</span>
-            <input 
-              type="range" min="0" max="1" step="0.02" value={effectIntensity}
-              onChange={(e) => setEffectIntensity(parseFloat(e.target.value))}
-              style={{ width: '80px' }}
-            />
+            <div style={styles.letter}>{ball.letter}</div>
+            <div style={styles.number}>{ball.number}</div>
           </div>
-        </div>
-        
-        {/* Mini info panel: fortune & stats */}
-        <div style={{
-          marginTop: '16px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: '#020e0caa',
-          borderRadius: '40px',
-          padding: '6px 20px',
-          border: '1px solid #d4af37'
-        }}>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <span style={{ color: '#f3c969' }}>⚡ VX: {velocity.vx.toFixed(1)}</span>
-            <span style={{ color: '#f3c969' }}>⬇️ VY: {velocity.vy.toFixed(1)}</span>
-            <span style={{ color: '#b5ffcf' }}>🎯 BOUNCE COUNT: {Math.floor(Math.abs(velocity.vy * 3) % 99)}</span>
-          </div>
-          <div style={{ fontFamily: 'monospace', background: '#00000066', padding: '4px 12px', borderRadius: '50px' }}>
-            <span style={{ color: '#ffcf4a' }}>🎰 BINGO FORTUNE · DRAG & FLICK 🎰</span>
-          </div>
-        </div>
-        <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '11px', color: '#8aa' }}>
-          ⚡ Click + drag on ball to launch | bounce off walls & floor | bingo style checker patterns
-        </div>
+        ))}
       </div>
     </div>
   );
 };
 
-// Helper button style (retro bingo)
-const buttonStyle = (bg: string): React.CSSProperties => ({
-  background: bg,
-  border: 'none',
-  padding: '8px 18px',
-  borderRadius: '40px',
-  fontWeight: 'bold',
-  fontFamily: '"Orbitron", "Courier New", monospace',
-  fontSize: '14px',
-  color: '#0f1f1c',
-  cursor: 'pointer',
-  boxShadow: '0 3px 0 #6b3e00',
-  transition: '0.07s linear',
-  letterSpacing: '1px'
-});
+const styles = {
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    fontFamily: 'Arial, sans-serif',
+  },
+  controls: {
+    marginBottom: '20px',
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  button: {
+    padding: '10px 20px',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    backgroundColor: '#4CAF50',
+    color: 'white',
+    border: 'none',
+    borderRadius: '5px',
+    transition: 'transform 0.2s, backgroundColor 0.2s',
+  },
+  buttonHover: {
+    backgroundColor: '#45a049',
+    transform: 'scale(1.05)',
+  },
+  ballCount: {
+    padding: '10px 15px',
+    backgroundColor: '#f0f0f0',
+    borderRadius: '5px',
+    fontWeight: 'bold',
+  },
+  bingoArea: {
+    position: 'relative',
+    width: '900px',
+    height: '600px',
+    border: '3px solid #333',
+    borderRadius: '10px',
+    backgroundColor: '#f5f5dc', // Cream color like bingo cards
+    overflow: 'hidden',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+  },
+  ball: {
+    position: 'absolute',
+    borderRadius: '50%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'box-shadow 0.1s',
+    color: 'white',
+    textShadow: '1px 1px 0 rgba(0,0,0,0.3)',
+    fontWeight: 'bold',
+  },
+  letter: {
+    fontSize: '14px',
+    fontWeight: 'bold',
+    lineHeight: 1,
+  },
+  number: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    lineHeight: 1,
+  },
+};
 
-export default BouncingBall;
+// Add hover effect for buttons
+const buttonStyle = document.createElement('style');
+buttonStyle.textContent = `
+  button:hover {
+    background-color: #45a049 !important;
+    transform: scale(1.05);
+  }
+  button:active {
+    transform: scale(0.95);
+  }
+  button:disabled {
+    background-color: #cccccc !important;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+document.head.appendChild(buttonStyle);
+
+export default BouncingBingoBalls;
