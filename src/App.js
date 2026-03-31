@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
 const GRAVITY = 0.4;
-const FRICTION = 0.82;
-const BOUNCE = 0.72;
+const FRICTION = 0.99;  // Almost no friction
+const BOUNCE = 0.95;     // High bounce - minimal energy loss
 const BALL_RADIUS = 28;
-const MIN_SPEED = 0.5; // Minimum speed threshold
-const RESTING_PENALTY = 0.5; // Push force when a ball seems stuck
 
 const BALLS_INIT = [
   { x: 160, y: 120, vx: 3.2, vy: 1.5, color: '#ff4d6d', trail: [] },
@@ -60,36 +58,25 @@ export default function App() {
           ball.x += ball.vx;
           ball.y += ball.vy;
 
-          // Wall collisions
-          if (ball.x + BALL_RADIUS > W) { ball.x = W - BALL_RADIUS; ball.vx *= -BOUNCE; }
-          if (ball.x - BALL_RADIUS < 0) { ball.x = BALL_RADIUS; ball.vx *= -BOUNCE; }
+          // Wall collisions - PERFECT BOUNCE (no energy loss)
+          if (ball.x + BALL_RADIUS > W) { 
+            ball.x = W - BALL_RADIUS; 
+            ball.vx = -ball.vx;  // Perfect bounce - no energy loss
+          }
+          if (ball.x - BALL_RADIUS < 0) { 
+            ball.x = BALL_RADIUS; 
+            ball.vx = -ball.vx;  // Perfect bounce - no energy loss
+          }
           if (ball.y + BALL_RADIUS > H) {
             ball.y = H - BALL_RADIUS;
-            ball.vy *= -BOUNCE;
-            ball.vx *= FRICTION;
+            ball.vy = -ball.vy;  // Perfect bounce - keeps bouncing forever!
+            // Optional: tiny friction on ground to prevent sliding forever
+            ball.vx *= 0.999;
           }
-          if (ball.y - BALL_RADIUS < 0) { ball.y = BALL_RADIUS; ball.vy *= -BOUNCE; }
-
-          // --- NEW: Anti-stopping mechanism ---
-          const speed = Math.abs(ball.vx) + Math.abs(ball.vy);
-          
-          // If ball is moving too slow, give it a tiny random push
-          if (speed < MIN_SPEED) {
-            const angle = Math.random() * Math.PI * 2;
-            ball.vx += Math.cos(angle) * RESTING_PENALTY;
-            ball.vy += Math.sin(angle) * RESTING_PENALTY;
+          if (ball.y - BALL_RADIUS < 0) { 
+            ball.y = BALL_RADIUS; 
+            ball.vy = -ball.vy;  // Perfect bounce on ceiling
           }
-          
-          // Extra: If ball is on the ground and barely moving, give it a vertical nudge
-          if (ball.y + BALL_RADIUS >= H - 1 && Math.abs(ball.vy) < 1.2) {
-            ball.vy -= RESTING_PENALTY * 1.2;
-          }
-
-          // Optional: Cap maximum velocity to prevent wild behavior
-          const MAX_SPEED = 15;
-          if (Math.abs(ball.vx) > MAX_SPEED) ball.vx = Math.sign(ball.vx) * MAX_SPEED;
-          if (Math.abs(ball.vy) > MAX_SPEED) ball.vy = Math.sign(ball.vy) * MAX_SPEED;
-          // ----------------------------------
 
           // Trail
           ball.trail.push({ x: ball.x, y: ball.y });
@@ -153,7 +140,6 @@ export default function App() {
     ballsRef.current = BALLS_INIT.map(b => ({ ...b, trail: [] }));
   };
 
-
   return (
     <div style={{
       width: '100vw', height: '100vh', background: '#0a0a12',
@@ -169,7 +155,7 @@ export default function App() {
         background: 'linear-gradient(to bottom, rgba(10,10,18,0.9), transparent)',
       }}>
         <span style={{ color: '#4cc9f0', fontSize: '1.1rem', letterSpacing: '0.2em', fontWeight: 700 }}>
-          ◉ BOUNCE
+          ◉ BOUNCE FOREVER
         </span>
         <div style={{ display: 'flex', gap: 12 }}>
           <button onClick={togglePause} style={btnStyle('#ff4d6d')}>
@@ -192,7 +178,7 @@ export default function App() {
         position: 'absolute', bottom: 18,
         color: 'rgba(255,255,255,0.25)', fontSize: '0.72rem', letterSpacing: '0.15em',
       }}>
-        CLICK ANYWHERE TO SPAWN A BALL
+        CLICK ANYWHERE TO SPAWN A BALL | BOUNCES FOREVER!
       </div>
     </div>
   );
