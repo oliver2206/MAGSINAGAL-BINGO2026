@@ -1,371 +1,242 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const BouncingBingoBalls = () => {
-  const [balls, setBalls] = useState([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const animationRef = useRef(null);
-  const containerRef = useRef(null);
+const CodeSequenceDisplay = () => {
+  const [codes] = useState([
+    'G59', '27', 'N42', 'N35', 'G54', 'G46', 'N41', 'G49', 'B',
+    'G50', 'G61', 'B12', 'B6', 'N37', 'O68', 'G53', 'N40', 'G47',
+    'N63', 'O43', 'G29', 'O1', 'G28'
+  ]);
+  
+  const [selectedCode, setSelectedCode] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredCodes, setFilteredCodes] = useState(codes);
 
-  // Ball colors commonly used in bingo
-  const colors = [
-    '#FF6B6B', // Red
-    '#4ECDC4', // Teal
-    '#FFE66D', // Yellow
-    '#FF9F1C', // Orange
-    '#9B59B6', // Purple
-    '#3498DB', // Blue
-    '#2ECC71', // Green
-    '#E74C3C', // Crimson
-    '#F39C12', // Gold
-    '#1ABC9C', // Turquoise
-  ];
+  // Filter codes based on search
+  useEffect(() => {
+    if (searchTerm === '') {
+      setFilteredCodes(codes);
+    } else {
+      setFilteredCodes(codes.filter(code => 
+        code.toLowerCase().includes(searchTerm.toLowerCase())
+      ));
+    }
+  }, [searchTerm, codes]);
 
-  // Generate random ball data
-  const generateBall = (id, containerWidth, containerHeight) => {
-    const size = 50 + Math.random() * 20; // 50-70px
-    const x = Math.random() * (containerWidth - size);
-    const y = Math.random() * (containerHeight - size);
-    const vx = (Math.random() - 0.5) * 8;
-    const vy = (Math.random() - 0.5) * 8;
-    const number = Math.floor(Math.random() * 75) + 1; // 1-75 for American bingo
-    const letter = getBingoLetter(number);
-    const color = colors[Math.floor(Math.random() * colors.length)];
-
-    return {
-      id,
-      x,
-      y,
-      vx,
-      vy,
-      size,
-      number,
-      letter,
-      color,
-      mass: size / 50, // Mass proportional to size for realistic physics
+  // Get category and style for each code type
+  const getCodeInfo = (code) => {
+    if (code.startsWith('G')) {
+      return { 
+        category: 'G-Code', 
+        color: 'bg-blue-500',
+        bgColor: 'bg-blue-900/30',
+        borderColor: 'border-blue-400',
+        description: 'Preparatory function / G-code command'
+      };
+    } else if (code.startsWith('N')) {
+      return { 
+        category: 'Line Number', 
+        color: 'bg-green-500',
+        bgColor: 'bg-green-900/30',
+        borderColor: 'border-green-400',
+        description: 'Program line number / sequence number'
+      };
+    } else if (code.startsWith('B')) {
+      return { 
+        category: 'B-Code', 
+        color: 'bg-yellow-500',
+        bgColor: 'bg-yellow-900/30',
+        borderColor: 'border-yellow-400',
+        description: 'B-axis or secondary function code'
+      };
+    } else if (code.startsWith('O')) {
+      return { 
+        category: 'Program Number', 
+        color: 'bg-purple-500',
+        bgColor: 'bg-purple-900/30',
+        borderColor: 'border-purple-400',
+        description: 'Program or subroutine number'
+      };
+    } else if (!isNaN(parseInt(code))) {
+      return { 
+        category: 'Numeric Value', 
+        color: 'bg-red-500',
+        bgColor: 'bg-red-900/30',
+        borderColor: 'border-red-400',
+        description: 'Standalone numeric coordinate or value'
+      };
+    }
+    return { 
+      category: 'Unknown', 
+      color: 'bg-gray-500',
+      bgColor: 'bg-gray-900/30',
+      borderColor: 'border-gray-400',
+      description: 'Uncategorized code'
     };
   };
 
-  const getBingoLetter = (number) => {
-    if (number <= 15) return 'B';
-    if (number <= 30) return 'I';
-    if (number <= 45) return 'N';
-    if (number <= 60) return 'G';
-    return 'O';
+  const handleCodeClick = (code, index) => {
+    setSelectedCode({ code, index, info: getCodeInfo(code) });
+    // Auto-deselect after 3 seconds
+    setTimeout(() => setSelectedCode(null), 3000);
   };
 
-  // Initialize balls
-  const initializeBalls = () => {
-    if (!containerRef.current) return;
-    const container = containerRef.current;
-    const rect = container.getBoundingClientRect();
-    const newBalls = [];
-    const ballCount = 15; // Number of bouncing balls
-    
-    for (let i = 0; i < ballCount; i++) {
-      newBalls.push(generateBall(i, rect.width, rect.height));
-    }
-    setBalls(newBalls);
-  };
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 p-8">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 mb-4">
+            CNC Code Sequence
+          </h1>
+          <p className="text-gray-300 text-lg">Interactive visualization of G-code and M-code sequence</p>
+        </div>
 
-  // Update ball positions with collision detection
-  const updatePositions = () => {
-    if (!containerRef.current || !isRunning) return;
-    
-    const container = containerRef.current;
-    const rect = container.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    
-    setBalls(prevBalls => {
-      let newBalls = [...prevBalls];
-      
-      // Update positions and handle wall collisions
-      for (let i = 0; i < newBalls.length; i++) {
-        let ball = { ...newBalls[i] };
-        
-        // Update position
-        ball.x += ball.vx;
-        ball.y += ball.vy;
-        
-        // Wall collision (left/right)
-        if (ball.x <= 0) {
-          ball.x = 0;
-          ball.vx = Math.abs(ball.vx);
-        } else if (ball.x + ball.size >= width) {
-          ball.x = width - ball.size;
-          ball.vx = -Math.abs(ball.vx);
-        }
-        
-        // Wall collision (top/bottom)
-        if (ball.y <= 0) {
-          ball.y = 0;
-          ball.vy = Math.abs(ball.vy);
-        } else if (ball.y + ball.size >= height) {
-          ball.y = height - ball.size;
-          ball.vy = -Math.abs(ball.vy);
-        }
-        
-        // Add slight damping to prevent infinite bouncing
-        ball.vx *= 0.998;
-        ball.vy *= 0.998;
-        
-        newBalls[i] = ball;
-      }
-      
-      // Ball-to-ball collision detection
-      for (let i = 0; i < newBalls.length; i++) {
-        for (let j = i + 1; j < newBalls.length; j++) {
-          const ball1 = newBalls[i];
-          const ball2 = newBalls[j];
-          
-          const dx = (ball1.x + ball1.size / 2) - (ball2.x + ball2.size / 2);
-          const dy = (ball1.y + ball1.size / 2) - (ball2.y + ball2.size / 2);
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const minDistance = (ball1.size + ball2.size) / 2;
-          
-          if (distance < minDistance) {
-            // Collision detected - resolve using physics
-            const angle = Math.atan2(dy, dx);
-            const sin = Math.sin(angle);
-            const cos = Math.cos(angle);
+        {/* Search Bar */}
+        <div className="mb-8">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search codes (e.g., G59, N42, B12)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-6 py-3 bg-gray-800/50 backdrop-blur-sm text-white placeholder-gray-400 rounded-xl border border-gray-600 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+            />
+            <div className="absolute right-3 top-3 text-gray-400">
+              🔍
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 text-center border border-gray-700">
+            <div className="text-2xl font-bold text-blue-400">{codes.length}</div>
+            <div className="text-xs text-gray-400">Total Codes</div>
+          </div>
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 text-center border border-gray-700">
+            <div className="text-2xl font-bold text-green-400">{codes.filter(c => c.startsWith('G')).length}</div>
+            <div className="text-xs text-gray-400">G-Codes</div>
+          </div>
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 text-center border border-gray-700">
+            <div className="text-2xl font-bold text-green-400">{codes.filter(c => c.startsWith('N')).length}</div>
+            <div className="text-xs text-gray-400">Line Numbers</div>
+          </div>
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 text-center border border-gray-700">
+            <div className="text-2xl font-bold text-yellow-400">{codes.filter(c => c.startsWith('B')).length}</div>
+            <div className="text-xs text-gray-400">B-Codes</div>
+          </div>
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-lg p-4 text-center border border-gray-700">
+            <div className="text-2xl font-bold text-purple-400">{codes.filter(c => c.startsWith('O')).length}</div>
+            <div className="text-xs text-gray-400">Program Numbers</div>
+          </div>
+        </div>
+
+        {/* Code Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {filteredCodes.map((code, index) => {
+            const codeInfo = getCodeInfo(code);
+            const originalIndex = codes.indexOf(code);
             
-            // Rotate velocities
-            const v1 = { x: ball1.vx, y: ball1.vy };
-            const v2 = { x: ball2.vx, y: ball2.vy };
-            
-            const v1r = {
-              x: v1.x * cos + v1.y * sin,
-              y: v1.y * cos - v1.x * sin
-            };
-            const v2r = {
-              x: v2.x * cos + v2.y * sin,
-              y: v2.y * cos - v2.x * sin
-            };
-            
-            // Collision response (elastic)
-            const m1 = ball1.mass;
-            const m2 = ball2.mass;
-            const v1rf = {
-              x: (v1r.x * (m1 - m2) + 2 * m2 * v2r.x) / (m1 + m2),
-              y: v1r.y
-            };
-            const v2rf = {
-              x: (v2r.x * (m2 - m1) + 2 * m1 * v1r.x) / (m1 + m2),
-              y: v2r.y
-            };
-            
-            // Rotate back
-            ball1.vx = v1rf.x * cos - v1rf.y * sin;
-            ball1.vy = v1rf.y * cos + v1rf.x * sin;
-            ball2.vx = v2rf.x * cos - v2rf.y * sin;
-            ball2.vy = v2rf.y * cos + v2rf.x * sin;
-            
-            // Separate balls to prevent sticking
-            const overlap = minDistance - distance;
-            const angleRad = Math.atan2(dy, dx);
-            const moveX = Math.cos(angleRad) * overlap / 2;
-            const moveY = Math.sin(angleRad) * overlap / 2;
-            
-            ball1.x -= moveX;
-            ball1.y -= moveY;
-            ball2.x += moveX;
-            ball2.y += moveY;
-            
-            // Keep balls within bounds after separation
-            ball1.x = Math.max(0, Math.min(ball1.x, width - ball1.size));
-            ball1.y = Math.max(0, Math.min(ball1.y, height - ball1.size));
-            ball2.x = Math.max(0, Math.min(ball2.x, width - ball2.size));
-            ball2.y = Math.max(0, Math.min(ball2.y, height - ball2.size));
+            return (
+              <div
+                key={`${code}-${index}`}
+                onClick={() => handleCodeClick(code, originalIndex)}
+                className={`
+                  relative group cursor-pointer transform transition-all duration-300
+                  ${codeInfo.bgColor} backdrop-blur-sm rounded-xl p-6 text-center
+                  border ${codeInfo.borderColor} hover:scale-105 hover:shadow-xl
+                  ${selectedCode?.code === code ? 'ring-4 ring-purple-500 scale-105' : ''}
+                `}
+              >
+                <div className="absolute top-2 right-2">
+                  <span className={`text-xs px-2 py-1 rounded-full ${codeInfo.color} bg-opacity-20 text-gray-300`}>
+                    {codeInfo.category}
+                  </span>
+                </div>
+                <div className="text-2xl font-bold text-white mb-2 font-mono">
+                  {code}
+                </div>
+                <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                  #{originalIndex + 1}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Selected Code Details */}
+        {selectedCode && (
+          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900/95 backdrop-blur-md rounded-xl p-6 border border-purple-500 shadow-2xl animate-in slide-in-from-bottom-5 z-50 min-w-[300px]">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-400 mb-2 font-mono">
+                {selectedCode.code}
+              </div>
+              <div className="text-sm text-gray-300 mb-1">
+                Category: <span className="text-purple-300">{selectedCode.info.category}</span>
+              </div>
+              <div className="text-xs text-gray-400">
+                Position: #{selectedCode.index + 1} of {codes.length}
+              </div>
+              <div className="text-xs text-gray-500 mt-2">
+                {selectedCode.info.description}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="mt-12 pt-8 border-t border-gray-700">
+          <h3 className="text-white text-lg mb-4 text-center">Code Legend</h3>
+          <div className="flex flex-wrap justify-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+              <span className="text-gray-300 text-sm">G-Codes (Preparatory Functions)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-green-500 rounded"></div>
+              <span className="text-gray-300 text-sm">N-Codes (Line Numbers)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+              <span className="text-gray-300 text-sm">B-Codes (Secondary Functions)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-purple-500 rounded"></div>
+              <span className="text-gray-300 text-sm">O-Codes (Program Numbers)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 bg-red-500 rounded"></div>
+              <span className="text-gray-300 text-sm">Numeric Values</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Full Sequence Display */}
+        <div className="mt-8 bg-gray-900/50 rounded-xl p-6 border border-gray-700">
+          <h3 className="text-gray-300 text-sm mb-3">Full Sequence</h3>
+          <div className="font-mono text-sm text-gray-400 break-all">
+            {codes.join(' → ')}
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes slide-in-from-bottom-5 {
+          from {
+            transform: translate(-50%, 100%);
+            opacity: 0;
+          }
+          to {
+            transform: translate(-50%, 0);
+            opacity: 1;
           }
         }
-      }
-      
-      return newBalls;
-    });
-  };
-  
-  // Animation loop
-  useEffect(() => {
-    if (isRunning) {
-      const animate = () => {
-        updatePositions();
-        animationRef.current = requestAnimationFrame(animate);
-      };
-      animationRef.current = requestAnimationFrame(animate);
-    } else if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
-    
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [isRunning]);
-  
-  // Initialize balls when component mounts or container resizes
-  useEffect(() => {
-    initializeBalls();
-    
-    const handleResize = () => {
-      initializeBalls();
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-  
-  // Add a new ball
-  const addBall = () => {
-    if (!containerRef.current || !isRunning) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const newBall = generateBall(Date.now(), rect.width, rect.height);
-    setBalls(prev => [...prev, newBall]);
-  };
-  
-  // Remove a ball
-  const removeBall = () => {
-    if (balls.length > 1) {
-      setBalls(prev => prev.slice(0, -1));
-    }
-  };
-  
-  // Reset all balls
-  const resetBalls = () => {
-    initializeBalls();
-  };
-  
-  return (
-    <div style={styles.container}>
-      <div style={styles.controls}>
-        <button onClick={() => setIsRunning(!isRunning)} style={styles.button}>
-          {isRunning ? 'Pause' : 'Start'}
-        </button>
-        <button onClick={addBall} disabled={!isRunning} style={styles.button}>
-          Add Ball
-        </button>
-        <button onClick={removeBall} disabled={!isRunning || balls.length <= 1} style={styles.button}>
-          Remove Ball
-        </button>
-        <button onClick={resetBalls} disabled={!isRunning} style={styles.button}>
-          Reset
-        </button>
-        <div style={styles.ballCount}>Balls: {balls.length}</div>
-      </div>
-      
-      <div 
-        ref={containerRef}
-        style={styles.bingoArea}
-      >
-        {balls.map(ball => (
-          <div
-            key={ball.id}
-            style={{
-              ...styles.ball,
-              width: ball.size,
-              height: ball.size,
-              left: ball.x,
-              top: ball.y,
-              backgroundColor: ball.color,
-              boxShadow: `0 4px 8px rgba(0,0,0,0.2), inset 0 -2px 0 rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.3)`,
-            }}
-          >
-            <div style={styles.letter}>{ball.letter}</div>
-            <div style={styles.number}>{ball.number}</div>
-          </div>
-        ))}
-      </div>
+        .animate-in {
+          animation: slide-in-from-bottom-5 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };
 
-const styles = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    fontFamily: 'Arial, sans-serif',
-  },
-  controls: {
-    marginBottom: '20px',
-    display: 'flex',
-    gap: '10px',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  button: {
-    padding: '10px 20px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    backgroundColor: '#4CAF50',
-    color: 'white',
-    border: 'none',
-    borderRadius: '5px',
-    transition: 'transform 0.2s, backgroundColor 0.2s',
-  },
-  buttonHover: {
-    backgroundColor: '#45a049',
-    transform: 'scale(1.05)',
-  },
-  ballCount: {
-    padding: '10px 15px',
-    backgroundColor: '#f0f0f0',
-    borderRadius: '5px',
-    fontWeight: 'bold',
-  },
-  bingoArea: {
-    position: 'relative',
-    width: '900px',
-    height: '600px',
-    border: '3px solid #333',
-    borderRadius: '10px',
-    backgroundColor: '#f5f5dc', // Cream color like bingo cards
-    overflow: 'hidden',
-    boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-  },
-  ball: {
-    position: 'absolute',
-    borderRadius: '50%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    transition: 'box-shadow 0.1s',
-    color: 'white',
-    textShadow: '1px 1px 0 rgba(0,0,0,0.3)',
-    fontWeight: 'bold',
-  },
-  letter: {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    lineHeight: 1,
-  },
-  number: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    lineHeight: 1,
-  },
-};
-
-// Add hover effect for buttons
-const buttonStyle = document.createElement('style');
-buttonStyle.textContent = `
-  button:hover {
-    background-color: #45a049 !important;
-    transform: scale(1.05);
-  }
-  button:active {
-    transform: scale(0.95);
-  }
-  button:disabled {
-    background-color: #cccccc !important;
-    cursor: not-allowed;
-    transform: none;
-  }
-`;
-document.head.appendChild(buttonStyle);
-
-export default BouncingBingoBalls;
+export default CodeSequenceDisplay;
