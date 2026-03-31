@@ -3,186 +3,166 @@ import { useEffect, useRef, useState } from 'react';
 const GRAVITY = 0.4;
 const FRICTION = 0.82;
 const BOUNCE = 0.72;
-const BALL_RADIUS = 28;
+const BALL_RADIUS = 30;
 
-const BALLS_INIT = [
-  { x: 160, y: 120, vx: 3.2, vy: 1.5, color: '#ff4d6d', trail: [] },
-  { x: 400, y: 80,  vx: -2.5, vy: 2.2, color: '#4cc9f0', trail: [] },
-  { x: 620, y: 200, vx: 1.8, vy: -1.2, color: '#f9c74f', trail: [] },
-];
+// Generate random bingo ball
+const getBingoBall = () => {
+  const letters = ['B', 'I', 'N', 'G', 'O'];
+  const ranges = {
+    B: [1, 15],
+    I: [16, 30],
+    N: [31, 45],
+    G: [46, 60],
+    O: [61, 75],
+  };
+
+  const letter = letters[Math.floor(Math.random() * 5)];
+  const [min, max] = ranges[letter];
+  const number = Math.floor(Math.random() * (max - min + 1)) + min;
+
+  const colors = {
+    B: '#4dabf7',
+    I: '#ff6b6b',
+    N: '#dee2e6',
+    G: '#69db7c',
+    O: '#ffd166',
+  };
+
+  return {
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    vx: (Math.random() - 0.5) * 6,
+    vy: (Math.random() - 0.5) * 6,
+    letter,
+    number,
+    color: colors[letter],
+    trail: [],
+  };
+};
 
 export default function App() {
   const canvasRef = useRef(null);
-  const ballsRef = useRef(BALLS_INIT.map(b => ({ ...b, trail: [] })));
+  const ballsRef = useRef(Array.from({ length: 25 }, getBingoBall));
   const animRef = useRef(null);
-  const [paused, setPaused] = useState(false);
-  const pausedRef = useRef(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
     const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
     };
     resize();
     window.addEventListener('resize', resize);
 
-    const handleClick = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      ballsRef.current.push({
-        x: mx, y: my,
-        vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 0.5) * 8,
-        color: `hsl(${Math.random() * 360},90%,65%)`,
-        trail: [],
-      });
-    };
-    canvas.addEventListener('click', handleClick);
-
     const draw = () => {
-      if (!pausedRef.current) {
-        const W = canvas.width;
-        const H = canvas.height;
+      const W = canvas.width;
+      const H = canvas.height;
 
-        // Background fade for trail effect
-        ctx.fillStyle = 'rgba(10, 10, 18, 0.30)';
-        ctx.fillRect(0, 0, W, H);
+      // Gradient background
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#4c00ff');
+      bg.addColorStop(1, '#00aaff');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
 
-        ballsRef.current.forEach(ball => {
-          // Physics
-          ball.vy += GRAVITY;
-          ball.x += ball.vx;
-          ball.y += ball.vy;
+      ballsRef.current.forEach(ball => {
+        // Physics
+        ball.vy += GRAVITY;
+        ball.x += ball.vx;
+        ball.y += ball.vy;
 
-          // Wall collisions
-          if (ball.x + BALL_RADIUS > W) { ball.x = W - BALL_RADIUS; ball.vx *= -BOUNCE; }
-          if (ball.x - BALL_RADIUS < 0) { ball.x = BALL_RADIUS; ball.vx *= -BOUNCE; }
-          if (ball.y + BALL_RADIUS > H) {
-            ball.y = H - BALL_RADIUS;
-            ball.vy *= -BOUNCE;
-            ball.vx *= FRICTION;
-          }
-          if (ball.y - BALL_RADIUS < 0) { ball.y = BALL_RADIUS; ball.vy *= -BOUNCE; }
+        // Walls
+        if (ball.x + BALL_RADIUS > W) { ball.x = W - BALL_RADIUS; ball.vx *= -BOUNCE; }
+        if (ball.x - BALL_RADIUS < 0) { ball.x = BALL_RADIUS; ball.vx *= -BOUNCE; }
+        if (ball.y + BALL_RADIUS > H) {
+          ball.y = H - BALL_RADIUS;
+          ball.vy *= -BOUNCE;
+          ball.vx *= FRICTION;
+        }
+        if (ball.y - BALL_RADIUS < 0) { ball.y = BALL_RADIUS; ball.vy *= -BOUNCE; }
 
-          // Trail
-          ball.trail.push({ x: ball.x, y: ball.y });
-          if (ball.trail.length > 18) ball.trail.shift();
+        // Ball
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
+        ctx.fillStyle = ball.color;
+        ctx.fill();
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
 
-          // Draw trail
-          ball.trail.forEach((pt, i) => {
-            const alpha = (i / ball.trail.length) * 0.35;
-            const r = BALL_RADIUS * (i / ball.trail.length) * 0.7;
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-            ctx.fillStyle = ball.color + Math.floor(alpha * 255).toString(16).padStart(2, '0');
-            ctx.fill();
-          });
+        // Text
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(ball.letter, ball.x, ball.y - 6);
 
-          // Glow
-          const glow = ctx.createRadialGradient(ball.x - 8, ball.y - 8, 2, ball.x, ball.y, BALL_RADIUS * 1.6);
-          glow.addColorStop(0, ball.color + 'cc');
-          glow.addColorStop(1, ball.color + '00');
-          ctx.beginPath();
-          ctx.arc(ball.x, ball.y, BALL_RADIUS * 1.6, 0, Math.PI * 2);
-          ctx.fillStyle = glow;
-          ctx.fill();
-
-          // Ball body
-          const grad = ctx.createRadialGradient(ball.x - 9, ball.y - 9, 3, ball.x, ball.y, BALL_RADIUS);
-          grad.addColorStop(0, '#ffffff99');
-          grad.addColorStop(0.3, ball.color);
-          grad.addColorStop(1, ball.color + '99');
-          ctx.beginPath();
-          ctx.arc(ball.x, ball.y, BALL_RADIUS, 0, Math.PI * 2);
-          ctx.fillStyle = grad;
-          ctx.fill();
-
-          // Specular highlight
-          ctx.beginPath();
-          ctx.arc(ball.x - 9, ball.y - 9, 7, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(255,255,255,0.55)';
-          ctx.fill();
-        });
-      }
+        ctx.font = 'bold 18px Arial';
+        ctx.fillText(ball.number, ball.x, ball.y + 14);
+      });
 
       animRef.current = requestAnimationFrame(draw);
     };
 
-    animRef.current = requestAnimationFrame(draw);
+    draw();
 
     return () => {
       cancelAnimationFrame(animRef.current);
       window.removeEventListener('resize', resize);
-      canvas.removeEventListener('click', handleClick);
     };
   }, []);
 
-  const togglePause = () => {
-    pausedRef.current = !pausedRef.current;
-    setPaused(p => !p);
-  };
-
-  const reset = () => {
-    ballsRef.current = BALLS_INIT.map(b => ({ ...b, trail: [] }));
-  };
-
   return (
-    <div style={{
-      width: '100vw', height: '100vh', background: '#0a0a12',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      fontFamily: "'Courier New', monospace",
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '18px 28px', zIndex: 10,
-        background: 'linear-gradient(to bottom, rgba(10,10,18,0.9), transparent)',
-      }}>
-        <span style={{ color: '#4cc9f0', fontSize: '1.1rem', letterSpacing: '0.2em', fontWeight: 700 }}>
-          ◉ BOUNCE
-        </span>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button onClick={togglePause} style={btnStyle('#ff4d6d')}>
-            {paused ? '▶ RESUME' : '⏸ PAUSE'}
-          </button>
-          <button onClick={reset} style={btnStyle('#f9c74f')}>
-            ↺ RESET
-          </button>
-        </div>
-      </div>
-
+    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+      
       {/* Canvas */}
       <canvas
         ref={canvasRef}
-        style={{ width: '100%', height: '100%', cursor: 'crosshair', display: 'block' }}
+        style={{ position: 'absolute', width: '100%', height: '100%' }}
       />
 
-      {/* Footer hint */}
-      <div style={{
-        position: 'absolute', bottom: 18,
-        color: 'rgba(255,255,255,0.25)', fontSize: '0.72rem', letterSpacing: '0.15em',
-      }}>
-        CLICK ANYWHERE TO SPAWN A BALL
+      {/* Center UI */}
+      <div style={centerUI}>
+        <h1 style={titleStyle}>BINGO FORTUNE</h1>
+
+        <button style={btn}>GENERATE</button>
+        <button style={btn}>PATTERN</button>
+        <button style={btn}>CHECKER</button>
+        <button style={btn}>ANALYZER</button>
+        <button style={btn}>GALLERY</button>
       </div>
     </div>
   );
 }
 
-const btnStyle = (color) => ({
-  background: 'transparent',
-  border: `1px solid ${color}55`,
-  color: color,
-  padding: '7px 18px',
-  borderRadius: 4,
+// Styles
+const centerUI = {
+  position: 'absolute',
+  top: '50%',
+  left: '50%',
+  transform: 'translate(-50%, -50%)',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: '15px',
+};
+
+const titleStyle = {
+  color: '#fff',
+  fontSize: '40px',
+  letterSpacing: '4px',
+  marginBottom: '10px',
+};
+
+const btn = {
+  width: '220px',
+  padding: '12px',
+  background: '#333',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '10px',
+  fontSize: '16px',
   cursor: 'pointer',
-  fontSize: '0.75rem',
-  letterSpacing: '0.12em',
-  fontFamily: "'Courier New', monospace",
-  transition: 'background 0.2s',
-});
+  boxShadow: '0 5px 15px rgba(0,0,0,0.3)',
+};
