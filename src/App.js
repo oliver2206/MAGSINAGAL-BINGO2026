@@ -1,55 +1,342 @@
 import { useState, useEffect, useRef } from 'react';
 import About from './About';
-import Experience from './Experience';
-import Gallery from './Gallery';
-import Testimonials from './Testimonials';
-import Contact from './Contact';
+import Contact from './Contact'; 
+import Portfolio from './Portfolio';
 
-// Fix: Use a reliable video URL or local path that exists
-// If you have a local video, ensure it's in the public/videos folder
 const heroVideo = '/videos/virtual-tour-vigan.mp4';
 
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
-  
+
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
   }
-  
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
   body {
     font-family: 'Space Grotesk', sans-serif;
     background: #000;
-    overflow-x: hidden;
+    color: #fff;
   }
-  
-  html, body, #root {
+
+  /* Navigation Styles */
+  .nav-link-item {
+    color: #3391ff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 0;
+    transition: color 0.3s ease;
+    text-decoration: none;
+    position: relative;
+  }
+
+  .nav-link-item::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: #3391ff;
+    transition: width 0.3s ease;
+  }
+
+  .nav-link-item:hover::after {
+    width: 100%;
+  }
+
+  .nav-link-item:hover {
+    color: #fff;
+  }
+
+  /* Button Styles */
+  .btn-blue {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    border: 2px solid #3391ff;
+    background: #3391ff;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    font-family: inherit;
+  }
+
+  .btn-blue:hover {
+    background: #2673cc;
+    border-color: #2673cc;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(51, 145, 255, 0.2);
+  }
+
+  .btn-outline-blue {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    border: 2px solid #3391ff;
+    background: transparent;
+    color: #3391ff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+  }
+
+  .btn-outline-blue:hover {
+    background: #3391ff;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(51, 145, 255, 0.2);
+  }
+
+  /* Project Card Styles */
+  .project-card {
+    background: #111;
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .project-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .project-card img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+  }
+
+  .project-card:hover img {
+    transform: scale(1.05);
+  }
+
+  .project-card-button {
+    margin-top: 12px;
+    display: inline-block;
+    background: #3391ff;
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.3s ease;
+  }
+
+  .project-card-button:hover {
+    background: #2673cc;
+  }
+
+  /* Modal Styles */
+  .modal-overlay {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    backdrop-filter: blur(5px);
   }
-  
-  /* Hero Section - Fullscreen without gaps */
+
+  .modal-content-box {
+    background: linear-gradient(135deg, #1a1a2e 0%, #111 100%);
+    color: #fff;
+    padding: 30px;
+    border-radius: 20px;
+    max-width: 800px;
+    width: 100%;
+    text-align: center;
+    position: relative;
+    overflow: auto;
+    max-height: 90vh;
+    border: 1px solid rgba(51, 145, 255, 0.2);
+  }
+
+  .modal-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 2rem;
+    color: #fff;
+    cursor: pointer;
+    background: rgba(51, 145, 255, 0.2);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    transition: background 0.3s;
+  }
+
+  .modal-close-btn:hover {
+    background: #3391ff;
+  }
+
+  .modal-img {
+    width: 100%;
+    max-height: 60vh;
+    object-fit: contain;
+    border-radius: 12px;
+    margin-bottom: 20px;
+  }
+
+  /* Scroll Top Button */
+  #scroll-top-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: #3391ff;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(51, 145, 255, 0.4);
+    z-index: 999;
+    transition: all 0.3s ease;
+  }
+
+  #scroll-top-btn:hover {
+    background: #2673cc;
+    transform: scale(1.1);
+  }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(40px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes floatDown {
+    0%, 100% {
+      transform: translateX(-50%) translateY(0);
+    }
+    50% {
+      transform: translateX(-50%) translateY(10px);
+    }
+  }
+
+  @keyframes letterIn {
+    from {
+      opacity: 0;
+      transform: translateY(40px) rotate(6deg);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) rotate(0deg);
+    }
+  }
+
+  @keyframes wordIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .cursor-blink {
+    animation: blink 0.75s step-end infinite;
+  }
+
+  .hero-letter {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(40px) rotate(6deg);
+    animation: letterIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+
+  .hero-sub-word {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: wordIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    margin-right: 0.3em;
+  }
+
+  .scroll-indicator {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+    opacity: 0.7;
+    animation: floatDown 2s ease-in-out infinite;
+  }
+
+  .scroll-indicator span {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #3391ff;
+    font-weight: 500;
+  }
+
+  .scroll-indicator-line {
+    width: 1px;
+    height: 50px;
+    background: linear-gradient(to bottom, #3391ff, transparent);
+  }
+
+  /* FULL SCREEN HERO SECTION - NO BLACK BARS */
   .hero-section {
     position: relative;
     width: 100%;
     height: 100vh;
     overflow: hidden;
-    margin: 0;
-    padding: 0;
   }
-  
+
+  /* Video container that fills the entire screen */
   .hero-video-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-  }
-  
-  /* Critical fix: video covers EVERYTHING, no black bars */
-  .hero-video {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -58,294 +345,96 @@ const GLOBAL_STYLES = `
     min-height: 150%;
     width: auto;
     height: auto;
+    overflow: hidden;
+  }
+
+  /* Video that covers the entire screen without black bars */
+  .hero-video {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 100%;
+    min-height: 100%;
+    width: auto;
+    height: auto;
     object-fit: cover;
   }
-  
-  /* Fallback gradient if video fails - no empty space */
-  .hero-video-fallback {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, #0a0a2a 0%, #000 100%);
-  }
-  
+
+  /* Dark overlay for text readability */
   .hero-overlay {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.55);
     z-index: 1;
   }
-  
+
+  /* Content wrapper */
   .hero-content {
     position: relative;
     z-index: 2;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    width: 100%;
     height: 100%;
-    text-align: center;
-    padding: 0px;
-  }
-  
-  @keyframes fadeUp {
-    from {
-      opacity: 0;
-      transform: translateY(30px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  .hero-letter, .hero-sub-word {
-    display: inline-block;
-    opacity: 0;
-    animation: fadeUp 0.4s ease forwards;
-  }
-  
-  .hero-sub-word {
-    margin-right: 8px;
-  }
-  
-  .cursor-blink {
-    animation: blink 1s infinite;
-  }
-  
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-  }
-  
-  .scroll-indicator {
-    position: absolute;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    z-index: 2;
-    opacity: 0.7;
-  }
-  
-  .scroll-indicator span {
-    font-size: 12px;
-    letter-spacing: 2px;
-    color: #fff;
-  }
-  
-  .scroll-indicator-line {
-    width: 2px;
-    height: 40px;
-    background: #fff;
-    animation: scrollBounce 1.5s infinite;
-  }
-  
-  @keyframes scrollBounce {
-    0%, 100% { transform: translateY(0); opacity: 0.3; }
-    50% { transform: translateY(10px); opacity: 1; }
-  }
-  
-  .btn-blue, .btn-outline-blue {
-    padding: 12px 28px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    border-radius: 40px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-decoration: none;
-    display: inline-block;
-    font-family: 'Space Grotesk', sans-serif;
-    border: none;
-  }
-  
-  .btn-blue {
-    background: #3391ff;
-    color: #fff;
-    border: 1px solid #3391ff;
-  }
-  
-  .btn-blue:hover {
-    background: transparent;
-    color: #3391ff;
-    transform: translateY(-3px);
-  }
-  
-  .btn-outline-blue {
-    background: transparent;
-    color: #3391ff;
-    border: 1px solid #3391ff;
-  }
-  
-  .btn-outline-blue:hover {
-    background: #3391ff;
-    color: #fff;
-    transform: translateY(-3px);
-  }
-  
-  .project-card {
-    background: #111;
-    border-radius: 12px;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  
-  .project-card:hover {
-    transform: translateY(-8px);
-    border-color: #3391ff;
-    box-shadow: 0 10px 30px rgba(51, 145, 255, 0.2);
-  }
-  
-  .project-card img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-  }
-  
-  .project-card-button {
-    color: #3391ff;
-    font-size: 0.85rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-  }
-  
-  .project-card:hover .project-card-button {
-    transform: translateX(5px);
-  }
-  
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.9);
-    z-index: 9999;
-    display: flex;
     justify-content: center;
-    align-items: center;
-    backdrop-filter: blur(5px);
-  }
-  
-  .modal-content-box {
-    background: #111;
-    max-width: 600px;
-    width: 90%;
-    padding: 30px;
-    border-radius: 20px;
     text-align: center;
-    position: relative;
-    border: 1px solid rgba(51, 145, 255, 0.3);
+    padding: 0 20px;
   }
-  
-  .modal-close-btn {
-    position: absolute;
-    top: 15px;
-    right: 20px;
-    font-size: 2rem;
-    background: none;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    transition: color 0.3s;
-  }
-  
-  .modal-close-btn:hover {
-    color: #3391ff;
-  }
-  
-  .modal-img {
+
+  /* Ensure body and root take full width */
+  #root {
     width: 100%;
-    max-height: 400px;
-    object-fit: cover;
-    border-radius: 10px;
-    margin-bottom: 20px;
+    min-height: 100vh;
+    overflow-x: hidden;
   }
-  
-  #scroll-top-btn {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: #3391ff;
-    color: #fff;
-    border: none;
-    cursor: pointer;
-    font-size: 1.5rem;
-    transition: all 0.3s ease;
-    z-index: 99;
-    opacity: 0;
-    visibility: hidden;
-  }
-  
-  #scroll-top-btn.visible {
-    opacity: 1;
-    visibility: visible;
-  }
-  
-  #scroll-top-btn:hover {
-    transform: translateY(-5px);
-    background: #fff;
-    color: #3391ff;
-  }
-  
-  .nav-link-item {
-    background: none;
-    border: none;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 0.3s;
-    font-family: 'Space Grotesk', sans-serif;
-  }
-  
-  .nav-link-item:hover {
-    color: #fff !important;
-  }
-  
-  @media (max-width: 991px) {
-    .desktop-nav {
-      display: none !important;
-    }
-    .hamburger {
-      display: block !important;
-    }
-  }
-  
+
+  /* Responsive */
   @media (max-width: 768px) {
-    .btn-blue, .btn-outline-blue {
-      padding: 10px 20px;
-      font-size: 0.8rem;
+    .hero-title {
+      font-size: 2.5rem !important;
+    }
+    .hero-typed {
+      font-size: 1.8rem !important;
+    }
+    .projects-grid {
+      grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .about-section {
+      flex-direction: column;
+    }
+    .about-left {
+      min-height: 350px;
+    }
+    .about-right {
+      padding: 40px 24px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .projects-grid {
+      grid-template-columns: 1fr !important;
     }
   }
 `;
 
 const PROJECTS = [
-  { id: 1, img: '/PNGFILE/PORTRAIT.jpg', title: 'Portrait Retouch', desc: 'Professional portrait retouching with skin smoothing and color grading.', link: '/project/portrait-retouch' },
-  { id: 2, img: '/PNGFILE/TRIPPLE EXPOSURE 1.jpg', title: 'Triple Exposure I', desc: 'Creative triple exposure photo compositing effect.', link: '/project/triple-exposure-1' },
-  { id: 3, img: '/PNGFILE/TRIPPLE EXPOSURE 2.jpg', title: 'Triple Exposure II', desc: 'Second series of triple exposure artistic photography.', link: '/project/triple-exposure-2' },
-  { id: 4, img: '/PNGFILE/Untitled-1.png', title: 'Coffee Shop Brand', desc: 'Logo and brand identity for The Daily Grind Coffee Shop.', link: '/project/coffee-shop-brand' },
-  { id: 5, img: '', title: 'Project 5', desc: 'Description for project 5 goes here.', link: '/project/5' },
-  { id: 6, img: '/PNGFILE/TEATEA.png', title: 'Teazy Taste', desc: 'Brand design and visual identity for a milk tea business.', link: '/project/teazy-taste' },
-  { id: 7, img: '/PNGFILE/peanut sarap.png', title: 'Peanut Sarap', desc: 'Product packaging and marketing design for local snack brand.', link: '/project/peanut-sarap' },
-  { id: 8, img: '/PNGFILE/ginatang kuhol.png', title: 'Ginatang Kuhol', desc: 'Food photography and visual design for local delicacy.', link: '/project/ginatang-kuhol' },
-  { id: 9, img: '/PNGFILE/PROJECT9.jpg', title: 'Project 9', desc: 'Description for project 9 goes here.', link: '/project/9' },
-  { id: 10, img: '/PNGFILE/MILKTEA 3.jpg', title: 'Milk Tea Campaign', desc: 'Marketing visuals and promotional design for milk tea brand.', link: '/project/milk-tea-campaign' },
+  { id: 1, img: './PNGFILE/PORTRAIT.jpg', title: 'Portrait Retouch', desc: 'Professional portrait retouching with skin smoothing and color grading.', link: './dsfgh.html' },
+  { id: 2, img: './PNGFILE/TRIPPLE EXPOSURE 1.jpg', title: 'Triple Exposure I', desc: 'Creative triple exposure photo compositing effect.', link: './dsfgh.html' },
+  { id: 3, img: './PNGFILE/TRIPPLE EXPOSURE 2.jpg', title: 'Triple Exposure II', desc: 'Second series of triple exposure artistic photography.', link: './dsfgh.html' },
+  { id: 4, img: './PNGFILE/Untitled-1.png', title: 'Coffee Shop Brand', desc: 'Logo and brand identity for The Daily Grind Coffee Shop.', link: './THE DAILY GRIND COFFEE SHOP.html' },
+  { id: 5, img: '', title: 'Project 5', desc: 'Description for project 5 goes here.', link: './dsfgh.html' },
+  { id: 6, img: './PNGFILE/TEATEA.png', title: 'Teazy Taste', desc: 'Brand design and visual identity for a milk tea business.', link: './teazy taste.html' },
+  { id: 7, img: './PNGFILE/peanut sarap.png', title: 'Peanut Sarap', desc: 'Product packaging and marketing design for local snack brand.', link: './dsfgh.html' },
+  { id: 8, img: './PNGFILE/ginatang kuhol.png', title: 'Ginatang Kuhol', desc: 'Food photography and visual design for local delicacy.', link: './dsfgh.html' },
+  { id: 9, img: './PNGFILE/PROJECT9.jpg', title: 'Project 9', desc: 'Description for project 9 goes here.', link: './dsfgh.html' },
+  { id: 10, img: './PNGFILE/MILKTEA 3.jpg', title: 'Milk Tea Campaign', desc: 'Marketing visuals and promotional design for milk tea brand.', link: './dsfgh.html' },
 ];
 
-// Typing effect hook
 function useTypingEffect(words) {
   const [text, setText] = useState('');
   const [wordIdx, setWordIdx] = useState(0);
@@ -375,7 +464,6 @@ function useTypingEffect(words) {
   return text;
 }
 
-// Modal Component
 function Modal({ project, onClose }) {
   if (!project) return null;
   
@@ -387,20 +475,18 @@ function Modal({ project, onClose }) {
           className="modal-img" 
           src={project.img || 'https://via.placeholder.com/800x500?text=No+Image'} 
           alt={project.title} 
-          onError={(e) => { e.target.src = 'https://via.placeholder.com/800x500?text=No+Image'; }}
         />
         <h2 style={{ marginBottom: '12px', color: '#3391ff' }}>{project.title}</h2>
         <p style={{ color: '#ccc', marginBottom: '20px', lineHeight: 1.6 }}>{project.desc}</p>
         <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-          <a href={project.link} className="btn-blue">View More</a>
-          <a href={project.link} className="btn-outline-blue">Full Project</a>
+          <a href={project.link} target="_blank" rel="noreferrer" className="btn-blue">View More</a>
+          <a href={project.link} target="_blank" rel="noreferrer" className="btn-outline-blue">Full Project</a>
         </div>
       </div>
     </div>
   );
 }
 
-// Mobile Navigation
 function MobileNav({ open, onClose, navigate }) {
   if (!open) return null;
   
@@ -454,8 +540,8 @@ function MobileNav({ open, onClose, navigate }) {
               textTransform: 'capitalize',
               transition: 'color 0.3s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#3391ff')}
+            onMouseEnter={(e) => (e.target.style.color = '#fff')}
+            onMouseLeave={(e) => (e.target.style.color = '#3391ff')}
           >
             {page.charAt(0).toUpperCase() + page.slice(1)}
           </button>
@@ -465,7 +551,6 @@ function MobileNav({ open, onClose, navigate }) {
   );
 }
 
-// Navbar Component
 function Navbar({ currentPage, navigate }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -545,12 +630,20 @@ function Navbar({ currentPage, navigate }) {
         </nav>
       </header>
       
+      <style>
+        {`
+          @media (max-width: 991px) {
+            .desktop-nav { display: none !important; }
+            .hamburger { display: block !important; }
+          }
+        `}
+      </style>
+      
       <MobileNav open={mobileOpen} onClose={() => setMobileOpen(false)} navigate={navigate} />
     </>
   );
 }
 
-// Animated Letters Component
 function AnimatedLetters({ text, baseDelay = 0, color }) {
   return (
     <>
@@ -570,7 +663,6 @@ function AnimatedLetters({ text, baseDelay = 0, color }) {
   );
 }
 
-// Animated Words Component
 function AnimatedWords({ text, baseDelay = 0 }) {
   return (
     <>
@@ -587,91 +679,198 @@ function AnimatedWords({ text, baseDelay = 0 }) {
   );
 }
 
-// Portfolio Component (was missing)
-function Portfolio({ navigate }) {
-  const [activeModal, setActiveModal] = useState(null);
-  
+// Experience Component
+function Experience() {
+  const experiences = [
+    {
+      year: '2022 - Present',
+      title: 'Senior UI/UX Designer',
+      company: 'Creative Studio PH',
+      desc: 'Leading design projects, creating user-centered interfaces, and mentoring junior designers.'
+    },
+    {
+      year: '2020 - 2022',
+      title: 'Graphic Designer',
+      company: 'Digital Arts Inc.',
+      desc: 'Designed marketing materials, social media graphics, and brand identities for clients.'
+    },
+    {
+      year: '2018 - 2020',
+      title: 'Freelance Designer',
+      company: 'Self-employed',
+      desc: 'Provided web design, photo retouching, and branding services to various clients.'
+    }
+  ];
+
   return (
-    <div style={{ background: '#000', minHeight: '100vh', padding: '120px 20px 80px' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        <h2 style={{
-          textAlign: 'center',
-          fontSize: 'clamp(2rem, 5vw, 3rem)',
-          marginBottom: '20px',
-          color: '#3391ff',
+    <div style={{ paddingTop: '100px', background: '#000', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+        <h1 style={{
           fontFamily: "'Syne', sans-serif",
+          fontSize: 'clamp(2.5rem, 5vw, 4rem)',
           fontWeight: 800,
-        }}>
-          My Portfolio
-        </h2>
-        <p style={{
           textAlign: 'center',
-          color: '#ccc',
-          maxWidth: '600px',
-          margin: '0 auto 60px',
-          fontSize: '1rem',
+          marginBottom: '20px',
+          color: '#3391ff'
         }}>
-          Here's a collection of my best work. Click on any project to see more details.
-        </p>
+          Experience
+        </h1>
+        <div style={{ width: '80px', height: '3px', background: '#3391ff', margin: '0 auto 50px' }} />
         
-        <div className="projects-grid" style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-          gap: '30px',
-        }}>
-          {PROJECTS.map((project) => (
-            <div
-              key={project.id}
-              className="project-card"
-              onClick={() => setActiveModal(project)}
-            >
-              <img
-                src={project.img || 'https://via.placeholder.com/400x300?text=Project+Image'}
-                alt={project.title}
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-                }}
-              />
-              <div style={{ padding: '20px' }}>
-                <h3 style={{ color: '#fff', marginBottom: '8px', fontSize: '1.1rem' }}>
-                  {project.title}
-                </h3>
-                <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '15px', lineHeight: 1.5 }}>
-                  {project.desc}
-                </p>
-                <div className="project-card-button">
-                  View Details →
-                </div>
-              </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          {experiences.map((exp, idx) => (
+            <div key={idx} style={{
+              background: '#111',
+              borderRadius: '16px',
+              padding: '30px',
+              transition: 'transform 0.3s ease',
+              border: '1px solid rgba(51, 145, 255, 0.1)',
+            }}>
+              <div style={{ color: '#3391ff', fontWeight: 600, marginBottom: '10px' }}>{exp.year}</div>
+              <h2 style={{ fontSize: '1.5rem', marginBottom: '5px', color: '#fff' }}>{exp.title}</h2>
+              <h3 style={{ color: '#888', marginBottom: '15px', fontSize: '1rem' }}>{exp.company}</h3>
+              <p style={{ color: '#ccc', lineHeight: 1.6 }}>{exp.desc}</p>
             </div>
           ))}
         </div>
-        
-        <div style={{ textAlign: 'center', marginTop: '50px' }}>
-          <button className="btn-outline-blue" onClick={() => navigate('home')}>
-            Back to Home
-          </button>
-        </div>
       </div>
-      
-      <Modal project={activeModal} onClose={() => setActiveModal(null)} />
     </div>
   );
 }
 
-// Home Component
+// Gallery Component
+function Gallery() {
+  const galleryImages = [
+    { id: 1, src: './PNGFILE/PORTRAIT.jpg', title: 'Portrait Work' },
+    { id: 2, src: './PNGFILE/TRIPPLE EXPOSURE 1.jpg', title: 'Triple Exposure' },
+    { id: 3, src: './PNGFILE/TRIPPLE EXPOSURE 2.jpg', title: 'Creative Composite' },
+    { id: 4, src: './PNGFILE/TEATEA.png', title: 'Brand Design' },
+    { id: 5, src: './PNGFILE/peanut sarap.png', title: 'Packaging Design' },
+    { id: 6, src: './PNGFILE/ginatang kuhol.png', title: 'Food Photography' },
+  ];
+
+  return (
+    <div style={{ paddingTop: '100px', background: '#000', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '40px 20px' }}>
+        <h1 style={{
+          fontFamily: "'Syne', sans-serif",
+          fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+          fontWeight: 800,
+          textAlign: 'center',
+          marginBottom: '20px',
+          color: '#3391ff'
+        }}>
+          Gallery
+        </h1>
+        <div style={{ width: '80px', height: '3px', background: '#3391ff', margin: '0 auto 50px' }} />
+        
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+          gap: '25px',
+        }}>
+          {galleryImages.map((img) => (
+            <div key={img.id} style={{
+              background: '#111',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              transition: 'transform 0.3s ease',
+            }}>
+              <img 
+                src={img.src} 
+                alt={img.title}
+                style={{ width: '100%', height: '250px', objectFit: 'cover' }}
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/400x250?text=Image+Not+Found';
+                }}
+              />
+              <div style={{ padding: '15px' }}>
+                <h3 style={{ color: '#fff' }}>{img.title}</h3>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Testimonials Component
+function Testimonials() {
+  const testimonials = [
+    {
+      id: 1,
+      text: "Nathaniel is an exceptional designer! His attention to detail and creative vision brought our brand to life. Highly recommended!",
+      author: "Maria Santos",
+      role: "CEO, Creative Studio"
+    },
+    {
+      id: 2,
+      text: "Working with Nathaniel was a pleasure. He delivered high-quality work on time and exceeded our expectations.",
+      author: "John Rivera",
+      role: "Marketing Director"
+    },
+    {
+      id: 3,
+      text: "The website Nathaniel built for us is stunning and performs flawlessly. His technical skills are top-notch.",
+      author: "Anna Cruz",
+      role: "Business Owner"
+    }
+  ];
+
+  return (
+    <div style={{ paddingTop: '100px', background: '#000', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px' }}>
+        <h1 style={{
+          fontFamily: "'Syne', sans-serif",
+          fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+          fontWeight: 800,
+          textAlign: 'center',
+          marginBottom: '20px',
+          color: '#3391ff'
+        }}>
+          Testimonials
+        </h1>
+        <div style={{ width: '80px', height: '3px', background: '#3391ff', margin: '0 auto 50px' }} />
+        
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+          gap: '30px',
+        }}>
+          {testimonials.map((t) => (
+            <div key={t.id} style={{
+              background: '#111',
+              borderRadius: '16px',
+              padding: '30px',
+              border: '1px solid rgba(51, 145, 255, 0.1)',
+            }}>
+              <p style={{ color: '#ccc', lineHeight: 1.6, marginBottom: '20px', fontStyle: 'italic' }}>
+                "{t.text}"
+              </p>
+              <div>
+                <h3 style={{ color: '#3391ff', marginBottom: '5px' }}>{t.author}</h3>
+                <p style={{ color: '#888', fontSize: '0.85rem' }}>{t.role}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Home({ navigate }) {
   const typed = useTypingEffect(['UI/UX Designer', 'Photo Retoucher', 'Marketing Artist']);
   const [activeModal, setActiveModal] = useState(null);
   const videoRef = useRef(null);
   const [videoError, setVideoError] = useState(false);
-  const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // Initialize video for full screen playback
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    // Force video to play and cover full area
     video.muted = true;
     video.loop = true;
     video.playsInline = true;
@@ -703,6 +902,7 @@ function Home({ navigate }) {
     
     video.addEventListener('error', handleError);
     
+    // Small delay to ensure video is ready
     const timer = setTimeout(attemptPlay, 100);
 
     return () => {
@@ -714,22 +914,16 @@ function Home({ navigate }) {
     };
   }, []);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollTop(window.scrollY > 300);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
   const titleEndDelay = 0.3 + ('I Am a'.length - 1) * 0.05 + 0.3;
   const subDelay = titleEndDelay + 0.2;
 
   return (
     <div style={{ background: '#000', color: '#fff' }}>
       
-      {/* HERO SECTION */}
+      {/* HERO SECTION - FULL SCREEN VIDEO WITH NO BLACK BARS */}
       <div className="hero-section">
+        
+        {/* Video Container - fills entire screen */}
         <div className="hero-video-container">
           {!videoError ? (
             <video
@@ -743,12 +937,21 @@ function Home({ navigate }) {
               <source src={heroVideo} type="video/mp4" />
             </video>
           ) : (
-            <div className="hero-video-fallback" />
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'linear-gradient(135deg, #0a0a2a 0%, #000 100%)',
+            }} />
           )}
         </div>
         
+        {/* Dark Overlay for better text readability */}
         <div className="hero-overlay" />
         
+        {/* Content */}
         <div className="hero-content">
           <div style={{ maxWidth: '800px', width: '90%' }}>
             <h3 style={{
@@ -832,6 +1035,7 @@ function Home({ navigate }) {
           </div>
         </div>
         
+        {/* Scroll Indicator */}
         <div className="scroll-indicator">
           <span>SCROLL</span>
           <div className="scroll-indicator-line" />
@@ -849,7 +1053,7 @@ function Home({ navigate }) {
           flex: 1,
           minWidth: '300px',
           minHeight: '500px',
-          background: "url('/PNGFILE/profile.jpg') no-repeat center center / cover",
+          background: "url('./PNGFILE/profile.jpg') no-repeat center center / cover",
         }} />
         <div style={{
           flex: 1,
@@ -932,7 +1136,7 @@ function Home({ navigate }) {
             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
             gap: '25px',
           }}>
-            {PROJECTS.slice(0, 6).map((project) => (
+            {PROJECTS.map((project) => (
               <div
                 key={project.id}
                 className="project-card"
@@ -970,9 +1174,9 @@ function Home({ navigate }) {
       
       <Modal project={activeModal} onClose={() => setActiveModal(null)} />
       
+      {/* Scroll to Top Button */}
       <button
         id="scroll-top-btn"
-        className={showScrollTop ? 'visible' : ''}
         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       >
         ↑
@@ -981,7 +1185,6 @@ function Home({ navigate }) {
   );
 }
 
-// Main App Component
 export default function App() {
   const [page, setPage] = useState('home');
 
@@ -1005,7 +1208,7 @@ export default function App() {
       case 'contact':
         return <Contact />;
       case 'portfolio':
-        return <Portfolio navigate={navigate} />;
+        return <Portfolio />;
       default:
         return <Home navigate={navigate} />;
     }
@@ -1020,7 +1223,7 @@ export default function App() {
     }}>
       <style>{GLOBAL_STYLES}</style>
       <Navbar currentPage={page} navigate={navigate} />
-      <main>{renderPage()}</main>
+      <main key={page}>{renderPage()}</main>
       <footer style={{
         padding: '40px 5%',
         background: '#030305',
@@ -1028,7 +1231,7 @@ export default function App() {
         textAlign: 'center',
       }}>
         <p style={{ color: '#666', fontSize: '0.85rem' }}>
-          © {new Date().getFullYear()} — All rights reserved.
+          © {new Date().getFullYear()} Nathaniel Oliver — All rights reserved.
         </p>
       </footer>
     </div>
